@@ -1,21 +1,23 @@
 import com.sun.istack.internal.NotNull;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 public class Deduction extends Proof{
     // premise, A |- B => premise |- A -> B
-    Expression A, B;
-    Expression[] premise;
+    private Expression A, B;
+    private ArrayList<Expression> premise = new ArrayList<Expression>();
+    private ArrayList<Expression> proven = new ArrayList<Expression>();
 
     // premise |- result
     public Deduction(Expression[] premise, @NotNull Expression result) {
         super();
 
-        this.premise = premise;
         if (premise == null) {
             A = null;
         } else {
-            axioms.addAll(Arrays.asList(premise).subList(0, premise.length - 1));
+            this.premise.addAll(Arrays.asList(premise).subList(0, premise.length - 1));
             A = premise[premise.length - 1];
         }
         B = result;
@@ -24,7 +26,7 @@ public class Deduction extends Proof{
     // premise |- A -> B
     public String getHeader() {
         String result = "";
-        for (Expression p: Arrays.asList(premise).subList(0, premise.length - 1)) {
+        for (Expression p: premise) {
             if (!result.equals(""))
                 result += ",";
             result += p.toString();
@@ -33,58 +35,39 @@ public class Deduction extends Proof{
         return result;
     }
 
-    // proof for X->X
-    public Line[] XEnsueX(Expression X, int offset) {
-        return new Line[] {
-                // 2nd axiom
-                // (X->(X->X)) -> (X->(X->X)->X) -> (X->X)
-                new Line(Type.AXIOM, new Consequence(new Consequence(X, new Consequence(X, X)),
-                        new Consequence(new Consequence(X, new Consequence(new Consequence(X, X), X)), new Consequence(X, X))),
-                        new int[]{2}),
-                // 1st axiom
-                // X->X->X
-                new Line(Type.AXIOM, new Consequence(X, new Consequence(X, X)), new int[]{1}),
-                // M.P. two last
-                // (X->(X->X)->X)->(X->X)
-                new Line(Type.MODUS_PONENS, new Consequence(new Consequence(X, new Consequence(new Consequence(X, X), X)),
-                        new Consequence(X, X)), new int[]{offset, offset + 1}),
-                // 1st axiom
-                // X->(X->X)->X
-                new Line(Type.AXIOM, new Consequence(X, new Consequence(new Consequence(X, X), X)), new int[]{1}),
-                // M.P. two last
-                // X->X
-                new Line(Type.MODUS_PONENS, new Consequence(X, X), new int[]{offset + 2, offset + 3})
-        };
+    private boolean isPremise(Expression expression) {
+        for (Expression p: premise) {
+            if (p.equals(expression))
+                return true;
+        }
+        return false;
     }
 
-    // proof for A->Ci, proven.get(mp[0]) is A->Cj, proven.get(mp[1]) is A->(Cj->Ci)
-    private Line[] deductiveMP(Expression A, @NotNull int[] mp, int offset) {
-        Expression Cj = proven.get(mp[1]).expression.right, CjCi = proven.get(mp[0]).expression.right, Ci = CjCi.right;
-        return new Line[] {
+    // proof for A->C0, proven.get(mp[0]) is A->C1, proven.get(mp[1]) is A->(C1->C0)
+    private Expression[] deductiveMP(Expression A, @NotNull int[] mp, int offset) {
+        HashMap<String, Expression> map = new HashMap<String, Expression>();
+        map.put("A", A);
+        map.put("C1", proven.get(mp[1]).right);
+        map.put("C1C0", proven.get(mp[0]).right);
+        map.put("C0", proven.get(mp[0]).right.right);
+        return new Expression[] {
                 // 2nd axiom
-                // (A -> Cj) -> (A -> (Cj -> Ci)) -> (A -> Ci)
-                new Line(Type.AXIOM, new Consequence(new Consequence(A, Cj),
-                        new Consequence(new Consequence(A, CjCi), new Consequence(A, Ci))), new int[]{2}),
+                ExpressionFactory.parse("(A -> C1) -> (A -> (C1 -> C0)) -> (A -> C0)").replace(map),
                 // M.P. mp[1], last statement
-                // (A -> (Cj -> Ci)) -> (A -> Ci)
-                new Line(Type.MODUS_PONENS, new Consequence(new Consequence(A, CjCi), new Consequence(A, Ci)),
-                                                                                    new int[]{mp[1], offset}),
+                ExpressionFactory.parse("(A -> (C1 -> C0)) -> (A -> C0)").replace(map),
                 // M.P. mp[0], last statement
-                // A->Ci
-                new Line(Type.MODUS_PONENS, new Consequence(A, Ci), new int[]{mp[0], offset + 1})
+                ExpressionFactory.parse("A -> C0").replace(map),
         };
     }
 
     // returns number of lines (A->(Cj->Ci)) and A->Cj or null if there aren't such lines
     private int[] isDeductiveMP(Expression Ci) {
-        for (Line p: proven) {
-            Expression pe = p.expression;
-            if (pe instanceof Consequence && pe.left.equals(A)
-                    && pe.right instanceof Consequence && pe.right.right.equals(Ci)) {
-                Expression Cj = pe.right.left;
-                for (Line p1: proven) {
-                    Expression pe1 = p1.expression;
-                    if (pe1 instanceof Consequence && pe1.left.equals(A) && pe1.right.equals(Cj))
+        for (Expression p: proven) {
+            if (p instanceof Consequence && p.left.equals(A)
+                    && p.right instanceof Consequence && p.right.right.equals(Ci)) {
+                Expression Cj = p.right.left;
+                for (Expression p1: proven) {
+                    if (p1 instanceof Consequence && p1.left.equals(A) && p1.right.equals(Cj))
                         return new int[]{proven.indexOf(p), proven.indexOf(p1)};
                 }
             }
@@ -93,35 +76,64 @@ public class Deduction extends Proof{
         return null;
     }
 
-    // X->A where A is the axiom #n
-    public Line[] XEnsueAxiom(Expression X, Expression A, int n, int offset) {
-        return new Line[]{
-                // nth axiom
-                new Line(Type.AXIOM, A, new int[]{n}),
-                // 1st axiom
-                new Line(Type.AXIOM, new Consequence(A, new Consequence(X, A)), new int[]{1}),
-                // MP two last
-                new Line(Type.MODUS_PONENS, new Consequence(X, A), new int[]{offset, offset + 1})
-        };
-    }
-
-    public Line[] nextLine(@NotNull Expression line) throws Exception {
-        int axiom, mp[];
+    public Expression[] nextLine(@NotNull Expression line) throws Exception {
+        int mp[];
         if (line.equals(A)) {
-            Line[] result = XEnsueX(line, proven.size());
+            HashMap<String, Expression> map = new HashMap<String, Expression>();
+            map.put("X", line);
+            Expression[] result = {
+                    /// 1st axiom
+                    ExpressionFactory.parse("X->X->X").replace(map),
+                    // 2nd axiom
+                    ExpressionFactory.parse("(X->(X->X)) -> (X->(X->X)->X) -> (X->X)").replace(map),
+                    // MP two lasts
+                    ExpressionFactory.parse("(X->(X->X)->X)->(X->X)").replace(map),
+                    // first axiom
+                    ExpressionFactory.parse("X->(X->X)->X").replace(map),
+                    // MP two lasts
+                    ExpressionFactory.parse("X->X").replace(map)
+            };
             proven.addAll(Arrays.asList(result));
             return result;
-        } else if ((axiom = isAxiom(line)) != -1) {
-            Line[] result = XEnsueAxiom(A, line, axiom, proven.size());
+        } else if (isAxiom(line) != -1 ||
+                   isPremise(line)) {
+            HashMap<String, Expression> map = new HashMap<String, Expression>();
+            map.put("A", line);
+            map.put("X", A);
+            Expression[] result = new Expression[]{
+                    // axiom
+                    ExpressionFactory.parse("A").replace(map),
+                    // 1st axiom
+                    ExpressionFactory.parse("A->X->A").replace(map),
+                    // MP two lasts
+                    ExpressionFactory.parse("X->A").replace(map)
+            };
             proven.addAll(Arrays.asList(result));
             return result;
         } else if ((mp = isDeductiveMP(line)) != null) {
-            Line[] result = deductiveMP(A, mp, proven.size());
+            Expression[] result = deductiveMP(A, mp, proven.size());
             proven.addAll(Arrays.asList(result));
             return result;
-        }/* else {
-            throw new Exception("Couldn't proceed expression " + line.toString());
-        }*/
+        } else {
+            System.err.println("Couldn't proceed expression " + line.toString());
+        }
         return null;
+    }
+
+    // premise, a |- b
+    public static ArrayList<Expression> deduct(ArrayList<Expression> premise, Expression a, Expression b,
+                                               ArrayList<Expression> proof) throws Exception {
+        ArrayList <Expression> result = new ArrayList<Expression>();
+        premise.add(a);
+        Deduction curr = new Deduction(premise.toArray(new Expression[premise.size()]), b);
+        for(Expression e: proof) {
+            Expression[] tmp = curr.nextLine(e);
+
+            for(Expression e1: tmp) {
+                result.add(e1);
+            }
+        }
+
+        return result;
     }
 }

@@ -81,7 +81,8 @@ public class ExpressionFactoryTest {
     @Test
     public void mixed() {
         // pairs of input & output
-        String test[][] = new String[][]{new String[]{"A&B|C->B|A&C->C", "(((A&B)|C)->((B|(A&C))->C))"},
+        String test[][] = new String[][]{new String[]{"(A00 & B11) -> A00", "((A00&B11)->A00)"},
+                          new String[]{"A&B|C->B|A&C->C", "(((A&B)|C)->((B|(A&C))->C))"},
                           new String[]{"!(A&!(!C)&B)", "!(((A&!(!C))&B))"}, new String[]{"!!!A", "!(!(!A))"}};
         for (String[] s: test) {
             assertEquals(s[1], ExpressionFactory.parse(s[0]).toString());

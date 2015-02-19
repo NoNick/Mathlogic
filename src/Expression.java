@@ -1,6 +1,6 @@
 import com.sun.istack.internal.NotNull;
 
-import java.util.HashMap;
+import java.util.*;
 
 public abstract class Expression extends Throwable {
     protected Expression left, right = null;
@@ -51,4 +51,62 @@ public abstract class Expression extends Throwable {
           left.matches(other.left, history);
 
     }
+
+    // may create a few links pointing to one object inside tree
+    // returns copy of itself with replacements committed
+    public Expression replace(@NotNull Map<String, Expression> replacements) {
+        Expression rright = null, rleft = null;
+        if (right != null) {
+            rright = right.replace(replacements);
+        }
+        if (left != null) {
+            rleft = left.replace(replacements);
+        }
+
+        if (this instanceof Conjunction)
+            return new Conjunction(rleft, rright);
+        if (this instanceof Disjunction)
+            return new Disjunction(rleft, rright);
+        if (this instanceof Consequence)
+            return new Consequence(rleft, rright);
+        if (this instanceof Not)
+            return new Not(rleft);
+        return null;
+    }
+
+    public abstract boolean evaluate(@NotNull Map<String, Boolean> variables);
+
+    public ArrayList<String> getVariables() {
+        return new ArrayList<String>(getVariables(new HashSet<String>()));
+    }
+
+    protected HashSet<String> getVariables(HashSet<String> curr) {
+        left.getVariables(curr);
+        if (right != null) {
+            right.getVariables(curr);
+        }
+        return curr;
+    }
+
+    public List<Expression> proofForVars(@NotNull Map<String, Boolean> vars) {
+        ArrayList<Expression> proof = new ArrayList<Expression>();
+        proof.addAll(left.proofForVars(vars));
+        if (right != null) {
+            proof.addAll(right.proofForVars(vars));
+        }
+
+        HashMap<String, Expression> hm = new HashMap<String, Expression>();
+        hm.put("A", left);
+        hm.put("B", right);
+
+        String[] lemma;
+        lemma = getProof(left.evaluate(vars), right.evaluate(vars));
+        for (String str: lemma) {
+            proof.add(ExpressionFactory.parse(str).replace(hm));
+        }
+
+        return proof;
+    }
+
+    protected abstract String[] getProof(boolean a, boolean b);
 }

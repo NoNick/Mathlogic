@@ -13,7 +13,7 @@ public class Proof {
             "(A -> B) -> ((A -> !B) -> !A)",
             "!!A->A"
     };
-    protected ArrayList<Line> proven = new ArrayList<Line>();
+    private ArrayList<Line> proven = new ArrayList<Line>();
     protected ArrayList<Expression> axioms = new ArrayList<Expression>();
 
     public Proof() {
