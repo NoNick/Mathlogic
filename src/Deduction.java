@@ -1,5 +1,7 @@
-import com.sun.istack.internal.NotNull;
-
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -11,7 +13,7 @@ public class Deduction extends Proof{
     private ArrayList<Expression> proven = new ArrayList<Expression>();
 
     // premise |- result
-    public Deduction(Expression[] premise, @NotNull Expression result) {
+    public Deduction(Expression[] premise, Expression result) {
         super();
 
         if (premise == null) {
@@ -44,7 +46,7 @@ public class Deduction extends Proof{
     }
 
     // proof for A->C0, proven.get(mp[0]) is A->C1, proven.get(mp[1]) is A->(C1->C0)
-    private Expression[] deductiveMP(Expression A, @NotNull int[] mp, int offset) {
+    private Expression[] deductiveMP(Expression A,  int[] mp, int offset) {
         HashMap<String, Expression> map = new HashMap<String, Expression>();
         map.put("A", A);
         map.put("C1", proven.get(mp[1]).right);
@@ -76,7 +78,7 @@ public class Deduction extends Proof{
         return null;
     }
 
-    public Expression[] nextLine(@NotNull Expression line) throws Exception {
+    public Expression[] nextLine( Expression line) throws Exception {
         int mp[];
         if (line.equals(A)) {
             HashMap<String, Expression> map = new HashMap<String, Expression>();
@@ -135,5 +137,31 @@ public class Deduction extends Proof{
         }
 
         return result;
+    }
+
+    public static void main(String[] args) throws Exception {
+        FastScanner in = new FastScanner(new File("input.txt"));
+        PrintWriter out = new PrintWriter("output.txt");
+
+        String curr = in.nextLine(), split[] = curr.split("\\0174-"), premiseText[] = split[0].split(",");
+        Expression premise[] = new Expression[premiseText.length];
+        for (int i = 0; i < premise.length; i++) {
+            premise[i] = ExpressionFactory.parse(premiseText[i]);
+        }
+        Deduction deduction = new Deduction(premise, ExpressionFactory.parse(split[1]));
+        out.println(deduction.getHeader());
+        while ((curr = in.nextLine()) != null) {
+            if (curr.length() == 0)
+                continue;
+
+            Expression[] result = deduction.nextLine(ExpressionFactory.parse(curr));
+            if (result == null)
+                continue;
+            for (Expression r : result) {
+                out.println(r.toString());
+            }
+        }
+
+        out.close();
     }
 }

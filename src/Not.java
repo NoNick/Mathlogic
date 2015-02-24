@@ -1,5 +1,3 @@
-import com.sun.istack.internal.NotNull;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,12 +30,12 @@ public class Not extends Expression {
     }
 
     @Override
-    public boolean evaluate(@NotNull Map<String, Boolean> variables) {
+    public boolean evaluate( Map<String, Boolean> variables) {
         return !left.evaluate(variables);
     }
 
     @Override
-    public List<Expression> proofForVars(@NotNull Map<String, Boolean> vars) {
+    public List<Expression> proofForVars( Map<String, Boolean> vars) {
         List<Expression> list = left.proofForVars(vars);
         if (evaluate(vars))
             return list;

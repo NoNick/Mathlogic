@@ -1,16 +1,14 @@
-import com.sun.istack.internal.NotNull;
-
 import java.util.*;
 
 public abstract class Expression extends Throwable {
     protected Expression left, right = null;
 
-    public Expression(@NotNull Expression left, @NotNull Expression right) {
+    public Expression( Expression left,  Expression right) {
         this.left = left;
         this.right = right;
     }
 
-    public Expression(@NotNull Expression left) {
+    public Expression( Expression left) {
         this.left = left;
     }
 
@@ -30,7 +28,7 @@ public abstract class Expression extends Throwable {
                 || (right != null && ((Expression)other).right != null && right.equals(((Expression)other).right)));
     }
 
-    public boolean matches(@NotNull Expression other) {
+    public boolean matches( Expression other) {
         return matches(other, new HashMap<String, Expression>());
     }
 
@@ -54,7 +52,7 @@ public abstract class Expression extends Throwable {
 
     // may create a few links pointing to one object inside tree
     // returns copy of itself with replacements committed
-    public Expression replace(@NotNull Map<String, Expression> replacements) {
+    public Expression replace( Map<String, Expression> replacements) {
         Expression rright = null, rleft = null;
         if (right != null) {
             rright = right.replace(replacements);
@@ -74,7 +72,7 @@ public abstract class Expression extends Throwable {
         return null;
     }
 
-    public abstract boolean evaluate(@NotNull Map<String, Boolean> variables);
+    public abstract boolean evaluate( Map<String, Boolean> variables);
 
     public ArrayList<String> getVariables() {
         return new ArrayList<String>(getVariables(new HashSet<String>()));
@@ -88,7 +86,7 @@ public abstract class Expression extends Throwable {
         return curr;
     }
 
-    public List<Expression> proofForVars(@NotNull Map<String, Boolean> vars) {
+    public List<Expression> proofForVars( Map<String, Boolean> vars) {
         ArrayList<Expression> proof = new ArrayList<Expression>();
         proof.addAll(left.proofForVars(vars));
         if (right != null) {

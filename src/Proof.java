@@ -1,3 +1,7 @@
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 
 public class Proof {
@@ -70,5 +74,35 @@ public class Proof {
 
         proven.add(new Line(Type.NOT_PROVEN, line, null));
         return proven.get(proven.size() - 1);
+    }
+
+    public static void main(String[] args) throws Exception {
+        FastScanner in = new FastScanner(new File("input.txt"));
+        PrintWriter out = new PrintWriter("output.txt");
+
+        Proof proof = new Proof();
+        String curr;
+        int i = 0;
+        while ((curr = in.nextLine()) != null) {
+            if (curr.length() == 0)
+                continue;
+
+            Line result = proof.addLine(ExpressionFactory.parse(curr));
+            out.print("(" + i + ") " + curr + " ");
+            switch (result.type) {
+                case AXIOM:
+                    out.println("Сх. акс. " + result.reference[0]);
+                    break;
+                case MODUS_PONENS:
+                    out.println("M.P. " + result.reference[0] + ", " + result.reference[1]);
+                    break;
+                case NOT_PROVEN:
+                    out.println("Не доказано");
+                    break;
+            }
+            i++;
+        }
+
+        out.close();
     }
 }

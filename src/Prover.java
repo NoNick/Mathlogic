@@ -1,7 +1,8 @@
-import com.sun.istack.internal.NotNull;
-
+import java.io.File;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 
 public class Prover {
     public static class ProofWithAssumptions {
@@ -57,14 +58,14 @@ public class Prover {
         }
     }
 
-    private static ProofWithAssumptions buildProof(int index, @NotNull Expression toBeProven, @NotNull ArrayList<String> variables,
-                                                   @NotNull HashMap<String, Boolean> evaluation) throws Exception {
+    private static ProofWithAssumptions buildProof(int index, Expression toBeProven, ArrayList<String> variables,
+                                                   HashMap<String, Boolean> evaluation) throws Exception {
         if (index < variables.size()) {
             evaluation.put(variables.get(index), false);
             ProofWithAssumptions varFalse = buildProof(index + 1, toBeProven, variables, evaluation);
             evaluation.put(variables.get(index), true);
             ProofWithAssumptions varTrue = buildProof(index + 1, toBeProven, variables, evaluation);
-            // last assumption int varTrue was removed in ProofWithAssumptions during varTrue.deduct() call
+            // last assumption in varTrue was removed in ProofWithAssumptions during varTrue.deduct() call
             return new ProofWithAssumptions(ExcludeAssumption.get(varTrue, varFalse), varTrue.assumptions);
         } else {
             ArrayList<Expression> assumptions = new ArrayList<Expression>();
@@ -92,5 +93,27 @@ public class Prover {
             System.err.println("Couldn't proceed " + expression.toString());
             return null;
         }
+    }
+
+    public static void main(String[] args) throws Exception {
+        FastScanner in = new FastScanner(new File("input.txt"));
+        PrintWriter out = new PrintWriter("output.txt");
+
+        try {
+            ArrayList<Expression> proof = Prover.prove(ExpressionFactory.parse(in.nextLine()));
+            for (Expression expression: proof) {
+                out.println(expression);
+            }
+        } catch (NotValidException e) {
+            String msg = "Высказывание ложно при ";
+            Iterator it = e.values.entrySet().iterator();
+            while (it.hasNext()) {
+                HashMap.Entry entry = (HashMap.Entry)it.next();
+                msg += entry.getKey() + ((Boolean)entry.getValue() ? "=И" : "=Л") + ", ";
+                it.remove(); // avoids a ConcurrentModificationException
+            }
+            out.println(msg);
+        }
+        out.close();
     }
 }

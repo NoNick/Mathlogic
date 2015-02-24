@@ -1,5 +1,3 @@
-import com.sun.istack.internal.NotNull;
-
 import java.util.Map;
 
 public class Consequence extends Expression{
@@ -155,7 +153,7 @@ public class Consequence extends Expression{
     }
 
     @Override
-    public boolean evaluate(@NotNull Map<String, Boolean> variables) {
+    public boolean evaluate(Map<String, Boolean> variables) {
         return !left.evaluate(variables) ||
                 right.evaluate(variables);
     }

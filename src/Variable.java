@@ -1,5 +1,3 @@
-import com.sun.istack.internal.NotNull;
-
 import java.util.*;
 
 public class Variable extends Expression{
@@ -26,7 +24,7 @@ public class Variable extends Expression{
     }
 
     @Override
-    public Expression replace(@NotNull Map<String, Expression> replacements) {
+    public Expression replace( Map<String, Expression> replacements) {
         Expression expression = replacements.get(name);
         if (expression != null) {
             return expression;
@@ -35,7 +33,7 @@ public class Variable extends Expression{
     }
 
     @Override
-    public boolean evaluate(@NotNull Map<String, Boolean> variables) {
+    public boolean evaluate( Map<String, Boolean> variables) {
         Boolean result = variables.get(name);
         if (result == null)
             throw new ArithmeticException("No such variable in map: " + name);
@@ -54,7 +52,7 @@ public class Variable extends Expression{
     }
 
     @Override
-    public List<Expression> proofForVars(@NotNull Map<String, Boolean> vars) {
+    public List<Expression> proofForVars( Map<String, Boolean> vars) {
         ArrayList<Expression> list = new ArrayList<Expression>();
         list.add(evaluate(vars) ? this : new Not(this));
         return list;

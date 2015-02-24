@@ -1,5 +1,3 @@
-import com.sun.istack.internal.NotNull;
-
 import java.util.Map;
 
 public class Conjunction extends Expression{
@@ -49,7 +47,7 @@ public class Conjunction extends Expression{
     }
 
     @Override
-    public boolean evaluate(@NotNull Map<String, Boolean> variables) {
+    public boolean evaluate(Map<String, Boolean> variables) {
         return  right.evaluate(variables) & left.evaluate(variables);
     }
 
