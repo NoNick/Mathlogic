@@ -37,7 +37,6 @@ public class DeductionTest {
                     continue;
                 for (Expression r: result) {
                     out.println(r.toString());
-                    i++;
                 }
             }
 

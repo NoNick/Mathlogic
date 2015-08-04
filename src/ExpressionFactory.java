@@ -3,98 +3,75 @@ public class ExpressionFactory {
     private static int pos;
 
     public static Expression parse(String str) {
-        s = str;
+        s = str.replaceAll("\\s+", "");
         pos = 0;
-        return doConsequence();
-    }
-
-    private static void passWhitespaces() {
-        while (pos < s.length() && Character.isWhitespace(s.charAt(pos))) {
-            pos++;
-        }
+        return doImply();
     }
 
     // ! right associativity
-    private static Expression doConsequence() {
+    private static Expression doImply() {
         Expression expression = doDisjunction(), curr;
 
-        passWhitespaces();
         if (pos + 1 >= s.length() || (s.charAt(pos) != '-' && s.charAt(pos + 1) != '>'))
             return expression;
 
         pos += 2;
-        passWhitespaces();
-        return new Consequence(expression, doConsequence());
+        return new Consequence(expression, doImply());
     }
 
     private static Expression doDisjunction() {
         Expression expression = doConjunction(), curr;
-        passWhitespaces();
         while (pos < s.length()) {
             if (s.charAt(pos) != '|')
                 break;
 
             pos++;
-            passWhitespaces();
             curr = doConjunction();
             if (expression == null) {
                 expression = curr;
             } else {
                 expression = new Disjunction(expression, curr);
             }
-            passWhitespaces();
         }
 
         return  expression;
     }
 
     private static Expression doConjunction() {
-        Expression expression = doBracket(), curr;
-        passWhitespaces();
+        Expression expression = doUnary(), curr;
         while (pos < s.length()) {
             if (s.charAt(pos) != '&')
                 break;
 
             pos++;
-            passWhitespaces();
-            curr = doBracket();
+            curr = doUnary();
             if (expression == null) {
                 expression = curr;
             } else {
                 expression = new Conjunction(expression, curr);
             }
-            passWhitespaces();
         }
 
         return expression;
     }
 
-    private static Expression doBracket() {
-        passWhitespaces();
+    private static Expression doUnary() {
         if (s.charAt(pos) == '(') {
             pos++;
-            passWhitespaces();
-            Expression tmp = doConsequence();
+            Expression tmp = doImply();
             // closing bracket
             pos++;
-            passWhitespaces();
             return tmp;
         }
-        else
-            return doNot();
-    }
-
-    private static Expression doNot() {
-        if (s.charAt(pos) == '!') {
+        else if (s.charAt(pos) == '!') {
             pos++;
-            passWhitespaces();
-            return new Not(doBracket());
+            return new Not(doUnary());
+        } else {
+            return doVar();
         }
-        return doVariable();
     }
 
-    private static Expression doVariable() {
-        passWhitespaces();
+    private static Expression doVar() {
         boolean not = (s.charAt(pos) == '!');
         if (not)
             pos++;
@@ -104,7 +81,6 @@ public class ExpressionFactory {
             name.append(s.charAt(pos));
             pos++;
         } while (pos < s.length() && Character.isDigit(s.charAt(pos)));
-        passWhitespaces();
 
         return new Variable(name.toString());
     }

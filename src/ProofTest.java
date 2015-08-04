@@ -30,16 +30,16 @@ public class ProofTest {
                     continue;
 
                 Line result = proof.addLine(ExpressionFactory.parse(curr));
-                out.print("(" + i + ") " + curr + " ");
+                out.print("(" + (i + 1) + ") " + curr + " ");
                 switch (result.type) {
                     case AXIOM:
-                        out.println("Сх. акс. " + result.reference[0]);
+                        out.println("(Сх. акс. " + result.reference[0] + ")");
                         break;
                     case MODUS_PONENS:
-                        out.println("M.P. " + result.reference[0] + ", " + result.reference[1]);
+                        out.println("(M.P. " + (result.reference[0] + 1) + ", " + (result.reference[1] + 1) + ")");
                         break;
                     case NOT_PROVEN:
-                        out.println("Не доказано");
+                        out.println("(Не доказано)");
                         break;
                 }
                 i++;
