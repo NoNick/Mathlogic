@@ -1,7 +1,13 @@
 module Expression where
 
 import Data.List
-    
+
+class SameOp a where
+    same :: a -> a -> Bool
+
+class Extractable a where
+    getArgs :: a -> [a]
+
 data Expr = Imply Expr Expr | Disj [Expr] | Conj [Expr] |
             Not Expr | Forall String Expr | Exists String Expr |
             BracketsE Expr | Predicate Pred deriving (Eq)
@@ -36,23 +42,51 @@ instance Show Expr where
     show (BracketsE e) = "(" ++ (show e) ++ ")"
     show (Predicate p) = show p
 
-sameOp :: Expr -> Expr -> Bool
-sameOp (Imply _ _) (Imply _ _)     = True
-sameOp (Disj e)    (Disj e')       = (length e) == (length e')
-sameOp (Conj e)    (Conj e')       = (length e) == (length e')
-sameOp (Not _)     (Not _)         = True
-sameOp (Forall _ _) (Forall _ _)   = True
-sameOp (Exists _ _) (Exists _ _)   = True
-sameOp (BracketsE _) (BracketsE _) = True
-sameOp (Predicate _) (Predicate _) = True
-sameOp _ _                         = False
+instance SameOp Expr where
+    same (Imply _ _) (Imply _ _)     = True
+    same (Disj e)    (Disj e')       = (length e) == (length e')
+    same (Conj e)    (Conj e')       = (length e) == (length e')
+    same (Not _)     (Not _)         = True
+    same (Forall _ _) (Forall _ _)   = True
+    same (Exists _ _) (Exists _ _)   = True
+    same (BracketsE _) (BracketsE _) = True
+    same (Predicate _) (Predicate _) = True
+    same _ _                         = False
+
+instance SameOp Term where
+    same (Sum t) (Sum t') = (length t) == (length t')
+    same (Mult t) (Mult t') = (length t) == (length t')
+    same (BracketsT _) (BracketsT _) = True
+    same (Var _) (Var _) = True
+    same Zero Zero = True
+    same (Inc _) (Inc _) = True
+    same (Func f t) (Func f' t') =
+        (f == f') && ((length t) == (length t'))
+
+instance SameOp Pred where
+    same (Equals _ _) (Equals _ _) = True
+    same (Custom p t) (Custom p' t')
+        = (p == p') && ((length t) == (length t'))
+    same _ _ = False
 
 getName :: Pred -> String
 getName (Custom n _) = n
 
-getArgs :: Expr -> [Expr]
-getArgs (Imply e1 e2) = [e1, e2]
-getArgs (Disj e)      = e
-getArgs (Conj e)      = e
-getArgs (Not e)       = [e]
-getArgs (BracketsE e) = [e]
+instance Extractable Expr where
+    getArgs (Imply e1 e2) = [e1, e2]
+    getArgs (Disj e)      = e
+    getArgs (Conj e)      = e
+    getArgs (Not e)       = [e]
+    getArgs (BracketsE e) = [e]
+
+instance Extractable Term where
+    getArgs (Sum t)       = t
+    getArgs (Mult t)      = t
+    getArgs (BracketsT t) = [t]
+    getArgs v@(Var _)     = [v]
+    getArgs Zero          = []
+    getArgs (Inc t)       = [t]
+    getArgs (Func _ t)    = t
+
+getArgs' (Equals t1 t2) = [t1, t2]
+getArgs' (Custom _ t)   = t
