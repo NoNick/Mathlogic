@@ -50,6 +50,8 @@ def = Predicate $ Custom "0" []
 match :: Expr -> Expr -> State (HM.Map String Expr) Bool
 match (Forall _ _) _ = return False
 match (Exists _ _) _ = return False
+match (BracketsE e) e' = match e e'
+match e (BracketsE e') = match e e'
 match (Predicate p) e = do map <- get
                            let n = getName p
                            let res = HM.findWithDefault def n map
@@ -70,13 +72,8 @@ matchList s e = do res <- match (head s) (head e)
 -- False if expression doesn't match the scheme
 -- String error if substitute isn't OK
 matchForall :: Expr -> Either String Bool
-matchForall (Imply e1 e2)
-    = case e1 of
-        (Forall x e) -> let eval = fst $ runState (forall e e2 S.empty) (x, Nothing) in case e2 of
-                                                                                  (Forall y _) -> if x == y then Right False
-                                                                                                  else eval
-                                                                                  otherwise -> eval  
-        otherwise -> Right False
+matchForall (Imply (Forall x e) e')
+    = fst $ runState (forall e e' S.empty) (x, Nothing)
 matchForall _ = Right False
 
 forallL :: [Expr] -> [Expr] -> S.Set String -> State (String, Maybe Term) (Either String Bool)
@@ -146,3 +143,13 @@ forall' t1 t2 dom = if same t1 t2 then
                            forallL' a1 a2 dom
                     else return $ Right False
 
+-- True if expression matches scheme P[x:=y]->@xP and subst is OK
+-- False if expression doesn't match the scheme
+-- String error if substitute isn't OK
+matchExists :: Expr -> Either String Bool
+matchExists (Imply e (Exists x e'))= matchForall (Imply (Forall x e') e)
+matchExists _ = Right False
+
+unpackE (Right r) = r
+q = P.parse pExpr "" $ C.pack "@xP(x)->@xP(x)"
+e = unpackE q
