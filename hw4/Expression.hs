@@ -32,8 +32,12 @@ instance Ord Expr where
     min e1 e2 = if e1 < e2 then e1 else e2
 
 instance Show Expr where
-    show (Sum t)       = intercalate " + " $ map show t
-    show (Mult t)      = "(" ++ (intercalate " * " $ map show t) ++ ")"
+    show (Sum t)       = case t of
+                           (t':[]) -> show t'
+                           _ -> "(" ++ (intercalate "+" $ map show t) ++ ")"
+    show (Mult t)      = case t of
+                           (t':[]) -> show t'
+                           _ -> "(" ++ (intercalate "*" $ map show t) ++ ")"
     show (Var v)       = v
     show Zero          = "0"
     show (Inc t)       = "(" ++ (show t) ++ ")\'"
@@ -84,5 +88,5 @@ instance Extractable Expr where
     getArgs (EqualsP t1 t2) = [t1, t2]
     getArgs (CustomP _ t)   = t
 
--- grammar makes this expression impossible
+-- grammar makes this expression illigal
 err = CustomP "E" []

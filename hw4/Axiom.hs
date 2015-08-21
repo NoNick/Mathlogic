@@ -17,7 +17,14 @@ axiomsText = ["A->B->A",
               "B->A|B",
               "(A->C)->(B->C)->(A|B->C)",
               "(A->B)->(A->!B)->!A",
-              "!!A->A"]
+              "!!A->A",
+              "a=b->a'=b'",
+              "a=b->a=c->b=c",
+              "a'=b'->a=b",
+              "!a'=0",
+              "a+0=a",
+              "a*0=0",
+              "a*b'=a*b+a"]
 
 unpack (Right r) = r
 unpack (Left _)  = err
@@ -63,33 +70,36 @@ matchList s e = do res <- match (head s) (head e)
 -- String error if substitute isn't OK
 matchForall :: Expr -> Either String Bool
 matchForall (Imply (Forall x e) e')
-    = fst $ runState (forall e e' S.empty) (x, Nothing)
+    = fst $ runState (subst e e' S.empty) (x, Nothing)
 matchForall _ = Right False
 
-forallL :: [Expr] -> [Expr] -> S.Set String -> State (String, Maybe Expr) (Either String Bool)
-forallL [] [] dom = return $ Right True
-forallL e1 e2 dom
-    = do res <- forall (head e1) (head e2) dom
+substL :: [Expr] -> [Expr] -> S.Set String -> State (String, Maybe Expr) (Either String Bool)
+substL [] [] dom = return $ Right True
+substL e1 e2 dom
+    = do res <- subst (head e1) (head e2) dom
          case res of
-           (Right r) -> do res' <- forallL (tail e1) (tail e2) dom
+           (Right r) -> do res' <- substL (tail e1) (tail e2) dom
                            case res' of
                              (Right r') -> return $ Right $ r && r'
                              (Left _)   -> return res'
            (Left _)  -> return res
 
--- first is scheme, second is expression, third is dom variables
-forall :: Expr -> Expr -> S.Set String -> State (String, Maybe Expr) (Either String Bool)
-forall e1@(Forall x e) e2@(Forall x' e') dom
+-- state: x=e; args: e1 e2 dom
+-- if e is Nothing, finds it; returns false if e is ambiguous
+-- returns true if substitution e1[x:=e]=e2 is OK, false otherwise
+-- returns String if a substituion rule violated
+subst :: Expr -> Expr -> S.Set String -> State (String, Maybe Expr) (Either String Bool)
+subst e1@(Forall x e) e2@(Forall x' e') dom
     = do st <- get
          let ret = if x /= x' then return $ Right False
-                   else forall e e' dom
+                   else subst e e' dom
          if x == (fst st) then
              return $ Right (e1 == e2)
          else if x /= x' then return $ Right False
-              else forall e e' (S.insert x dom)
-forall (Exists x e) (Exists x' e') dom
-    = forall (Forall x e) (Forall x' e') dom
-forall v@(Var x) e dom
+              else subst e e' (S.insert x dom)
+subst (Exists x e) (Exists x' e') dom
+    = subst (Forall x e) (Forall x' e') dom
+subst v@(Var x) e dom
     = do st <- get
          let res = if S.null $ S.intersection dom (fv e) then
                        return $ Right True
@@ -102,19 +112,20 @@ forall v@(Var x) e dom
                Nothing -> do put (x, Just e)
                              res
          else return $ Right (v == e)
-forall (CustomP n e) (CustomP n' e') dom
-    = if n == n' then forallL e e' dom
+subst (CustomP n e) (CustomP n' e') dom
+    = if n == n' then substL e e' dom
       else return $ Right False
-forall e1 e2 dom = if same e1 e2 then
-                       do let a1 = getArgs e1
-                          let a2 = getArgs e2
-                          forallL a1 a2 dom
-                   else return $ Right False
+subst e1 e2 dom = if same e1 e2 then
+                      do let a1 = getArgs e1
+                         let a2 = getArgs e2
+                         substL a1 a2 dom
+                  else return $ Right False
 
 -- True if expression matches scheme P[x:=y]->?xP and subst is OK
 -- False if expression doesn't match the scheme
 -- String error if substitute isn't OK
 matchExists :: Expr -> Either String Bool
-matchExists (Imply e (Exists x e'))= matchForall (Imply (Forall x e') e)
+matchExists (Imply e (Exists x e'))
+    = fst $ runState (subst e' e S.empty) (x, Nothing)
 matchExists _ = Right False
 

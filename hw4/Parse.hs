@@ -50,7 +50,7 @@ pUnary = try (char '!' >> pUnary >>= return . Not) <|>
                  v <- pVar
                  u <- pUnary
                  return $ Exists v u) <|>
-         try pPred
+         pPred
 
 pPred :: Parsec B.ByteString () Expr
 pPred = try (do name <- pName
@@ -60,26 +60,25 @@ pPred = try (do name <- pName
                                 char ')'
                                 return $ arg1:rest) <|> (return [])
                 return $ CustomP name args) <|>
-        try (do t1 <- pTerm
-                char '='
-                t2 <- pTerm
-                return $ EqualsP t1 t2)
+        (do t1 <- pTerm
+            char '='
+            t2 <- pTerm
+            return $ EqualsP t1 t2)
                        
 pTerm :: Parsec B.ByteString () Expr
-pTerm = try (do first <- pSummand
-                rest <- many $ char '+' >> pSummand
-                return $ Sum (first:rest)) <|>
-        pPred -- need to write arithmetic axioms
+pTerm = do first <- pSummand
+           rest <- many $ char '+' >> pSummand
+           return $ Sum (first:rest)
 
 pSummand :: Parsec B.ByteString () Expr
-pSummand = try (do first <- pInc
-                   rest <- many $ char '*' >> pInc
-                   return $ Mult (first:rest))
+pSummand = do first <- pInc
+              rest <- many $ char '*' >> pInc
+              return $ Mult (first:rest)
                            
 pInc :: Parsec B.ByteString () Expr
-pInc = try (do m <- pMult
-               c <- many $ char '\''
-               return $ inc m (length c))
+pInc = do m <- pMult
+          c <- many $ char '\''
+          return $ inc m (length c)
 
 inc :: Expr -> Int -> Expr
 inc t 0 = t
