@@ -1,61 +1,51 @@
 module Axiom where
 
 import qualified Data.ByteString.Char8 as C
-import Control.Monad.State
 import qualified Data.HashMap as HM
 import qualified Text.Parsec as P
 import qualified Data.Set as S
+import Control.Monad.State
 import Expression
 import Parse
 
-axioms = ["A->B->A",
-          "(A->B)->(A->B->C)->(A->C)",
-          "A->B->A&B",
-          "A&B->A",
-          "A&B->B",
-          "A->A|B",
-          "B->A|B",
-          "(A->C)->(B->C)->(A|B->C)",
-          "(A->B)->(A->!B)->!A",
-          "!!A->A"]
+axiomsText = ["A->B->A",
+              "(A->B)->(A->B->C)->(A->C)",
+              "A->B->A&B",
+              "A&B->A",
+              "A&B->B",
+              "A->A|B",
+              "B->A|B",
+              "(A->C)->(B->C)->(A|B->C)",
+              "(A->B)->(A->!B)->!A",
+              "!!A->A"]
 
 unpack (Right r) = r
-unpack (Left _)  = Predicate (Custom "E" [])
-
-fvSt :: Expr -> State (S.Set String) ()
-fvSt (Forall v e)  = fvSt e >> modify (S.delete v)
-fvSt (Exists v e)  = fvSt e >> modify (S.delete v)
-fvSt (Predicate p) = case p of
-                     (Equals t1 t2) -> fvSt' t1 >> fvSt' t2
-                     (Custom _ t) -> mapM_ fvSt' t
-fvSt e             = mapM_ fvSt $ getArgs e
-fvSt' :: Term -> State (S.Set String) ()
-fvSt' (Var v) = modify (S.insert v)
-fvSt' t       = mapM_ fvSt' $ getArgs t
+unpack (Left _)  = err
 
 fv :: Expr -> S.Set String
-fv e  = snd $ runState (fvSt e) S.empty
-fv':: Term -> S.Set String
-fv' t = snd $ runState (fvSt' t) S.empty
+fv (Forall v e)  = S.delete v (fv e)
+fv (Exists v e)  = S.delete v (fv e)
+fv (Var v)       = S.singleton v
+fv e             = S.unions $ map fv $ getArgs e
 
-getAxioms :: [Expr]
-getAxioms = map unpack $ map (P.parse pExpr "")
-              (map C.pack axioms)
+axioms :: [Expr]
+axioms = map unpack $ map (P.parse pExpr "")
+         (map C.pack axiomsText)
 
-def :: Expr
-def = Predicate $ Custom "0" []
-
+matchAxiom :: Expr -> Maybe Int
+matchAxiom e
+    = foldl (\acc (b, n) -> if b then Just n else acc) Nothing (zip res [1..])
+        where res = map ((flip evalState) HM.empty) states
+              states = map ((flip match) e) axioms
+              
 -- first args is scheme, second is expression
 -- no quantifiers in scheme!
 match :: Expr -> Expr -> State (HM.Map String Expr) Bool
-match (Forall _ _) _ = return False
-match (Exists _ _) _ = return False
-match (BracketsE e) e' = match e e'
-match e (BracketsE e') = match e e'
-match (Predicate p) e = do map <- get
-                           let n = getName p
-                           let res = HM.findWithDefault def n map
-                           if res == def then
+match (Forall _ _) _  = return False
+match (Exists _ _) _  = return False
+match (CustomP n p) e = do map <- get
+                           let res = HM.findWithDefault err n map
+                           if res == err then
                                (do modify (\m -> HM.insert n e m); return True)
                            else return $ e == res
 match s e = if same s e then
@@ -76,7 +66,7 @@ matchForall (Imply (Forall x e) e')
     = fst $ runState (forall e e' S.empty) (x, Nothing)
 matchForall _ = Right False
 
-forallL :: [Expr] -> [Expr] -> S.Set String -> State (String, Maybe Term) (Either String Bool)
+forallL :: [Expr] -> [Expr] -> S.Set String -> State (String, Maybe Expr) (Either String Bool)
 forallL [] [] dom = return $ Right True
 forallL e1 e2 dom
     = do res <- forall (head e1) (head e2) dom
@@ -88,7 +78,7 @@ forallL e1 e2 dom
            (Left _)  -> return res
 
 -- first is scheme, second is expression, third is dom variables
-forall :: Expr -> Expr -> S.Set String -> State (String, Maybe Term) (Either String Bool)
+forall :: Expr -> Expr -> S.Set String -> State (String, Maybe Expr) (Either String Bool)
 forall e1@(Forall x e) e2@(Forall x' e') dom
     = do st <- get
          let ret = if x /= x' then return $ Right False
@@ -99,32 +89,9 @@ forall e1@(Forall x e) e2@(Forall x' e') dom
               else forall e e' (S.insert x dom)
 forall (Exists x e) (Exists x' e') dom
     = forall (Forall x e) (Forall x' e') dom
-forall (Predicate p) (Predicate p') dom
-    = if same p p' then forallL' (getArgs' p) (getArgs' p') dom
-      else return $ Right False
-forall (BracketsE e) e' dom = forall e e' dom
-forall e (BracketsE e') dom = forall e e' dom
-forall e1 e2 dom = if same e1 e2 then
-                       do let a1 = getArgs e1
-                          let a2 = getArgs e2
-                          forallL a1 a2 dom
-                   else return $ Right False
-
-forallL' :: [Term] -> [Term] -> S.Set String -> State (String, Maybe Term) (Either String Bool)
-forallL' [] [] dom = return $ Right True
-forallL' e e' dom =
-    do res <- forall' (head e) (head e') dom
-       case res of
-           (Right r) -> do res' <- forallL' (tail e) (tail e') dom
-                           case res' of
-                             (Right r') -> return $ Right $ r && r'
-                             (Left _)   -> return res'
-           (Left _)  -> return res
-
-forall' :: Term -> Term -> S.Set String -> State (String, Maybe Term) (Either String Bool)
-forall' v@(Var x) e dom
+forall v@(Var x) e dom
     = do st <- get
-         let res = if S.null $ S.intersection dom (fv' e) then
+         let res = if S.null $ S.intersection dom (fv e) then
                        return $ Right True
                    else return $ Left ("Free variable in " ++ (show e)
                                         ++ " becomes dom variable.")
@@ -135,21 +102,19 @@ forall' v@(Var x) e dom
                Nothing -> do put (x, Just e)
                              res
          else return $ Right (v == e)
-forall' (BracketsT e) e' dom = forall' e e' dom
-forall' e (BracketsT e') dom = forall' e e' dom          
-forall' t1 t2 dom = if same t1 t2 then
-                        do let a1 = getArgs t1
-                           let a2 = getArgs t2
-                           forallL' a1 a2 dom
-                    else return $ Right False
+forall (CustomP n e) (CustomP n' e') dom
+    = if n == n' then forallL e e' dom
+      else return $ Right False
+forall e1 e2 dom = if same e1 e2 then
+                       do let a1 = getArgs e1
+                          let a2 = getArgs e2
+                          forallL a1 a2 dom
+                   else return $ Right False
 
--- True if expression matches scheme P[x:=y]->@xP and subst is OK
+-- True if expression matches scheme P[x:=y]->?xP and subst is OK
 -- False if expression doesn't match the scheme
 -- String error if substitute isn't OK
 matchExists :: Expr -> Either String Bool
 matchExists (Imply e (Exists x e'))= matchForall (Imply (Forall x e') e)
 matchExists _ = Right False
 
-unpackE (Right r) = r
-q = P.parse pExpr "" $ C.pack "@xP(x)->@xP(x)"
-e = unpackE q

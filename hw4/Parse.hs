@@ -41,7 +41,7 @@ pUnary = try (char '!' >> pUnary >>= return . Not) <|>
          try (do char '('
                  b <- pExpr
                  char ')'
-                 return $ BracketsE b) <|>
+                 return b) <|>
          try (do char '@'
                  v <- pVar
                  u <- pUnary
@@ -50,46 +50,47 @@ pUnary = try (char '!' >> pUnary >>= return . Not) <|>
                  v <- pVar
                  u <- pUnary
                  return $ Exists v u) <|>
-         try (pPred >>= return . Predicate)
+         try pPred
 
-pPred :: Parsec B.ByteString () Pred
+pPred :: Parsec B.ByteString () Expr
 pPred = try (do name <- pName
                 args <- try (do char '('
                                 arg1 <- pTerm
                                 rest <- many $ try $ char ',' >> pTerm
                                 char ')'
                                 return $ arg1:rest) <|> (return [])
-                return $ Custom name args) <|>
+                return $ CustomP name args) <|>
         try (do t1 <- pTerm
                 char '='
                 t2 <- pTerm
-                return $ Equals t1 t2)
+                return $ EqualsP t1 t2)
                        
-pTerm :: Parsec B.ByteString () Term
+pTerm :: Parsec B.ByteString () Expr
 pTerm = try (do first <- pSummand
                 rest <- many $ char '+' >> pSummand
-                return $ Sum (first:rest))
+                return $ Sum (first:rest)) <|>
+        pPred -- need to write arithmetic axioms
 
-pSummand :: Parsec B.ByteString () Term
+pSummand :: Parsec B.ByteString () Expr
 pSummand = try (do first <- pInc
                    rest <- many $ char '*' >> pInc
                    return $ Mult (first:rest))
                            
-pInc :: Parsec B.ByteString () Term
+pInc :: Parsec B.ByteString () Expr
 pInc = try (do m <- pMult
                c <- many $ char '\''
                return $ inc m (length c))
 
-inc :: Term -> Int -> Term
+inc :: Expr -> Int -> Expr
 inc t 0 = t
 inc t n = inc (Inc t) (pred n)
 
-pMult :: Parsec B.ByteString () Term
+pMult :: Parsec B.ByteString () Expr
 pMult = try (char '0' >> return Zero) <|>
         try (do char '('
                 b <- pTerm
                 char ')'
-                return $ BracketsT b) <|>
+                return b) <|>
         try (do v <- pVar
                 char '('
                 first <- pTerm
