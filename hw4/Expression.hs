@@ -16,7 +16,7 @@ data Expr = Imply Expr Expr | Disj [Expr] | Conj [Expr] |
             Not Expr | Forall String Expr | Exists String Expr |
             EqualsP Expr Expr | CustomP String [Expr] |
             Sum [Expr] | Mult [Expr] | Var String | Zero |
-            Inc Expr | Func String [Expr] deriving (Eq, Generic)
+            Inc Expr | Func String [Expr] deriving (Eq, Generic, Show)
                 
 type Header = ([Expr], Expr)
 type Proof = [Expr]
@@ -31,26 +31,26 @@ instance Ord Expr where
     max e1 e2 = if e1 > e2 then e1 else e2
     min e1 e2 = if e1 < e2 then e1 else e2
 
-instance Show Expr where
-    show (Sum t)       = case t of
-                           (t':[]) -> show t'
-                           _ -> "(" ++ (intercalate "+" $ map show t) ++ ")"
-    show (Mult t)      = case t of
-                           (t':[]) -> show t'
-                           _ -> "(" ++ (intercalate "*" $ map show t) ++ ")"
-    show (Var v)       = v
-    show Zero          = "0"
-    show (Inc t)       = "(" ++ (show t) ++ ")\'"
-    show (Func n t)    = n ++ "(" ++ (intercalate "," $ map show t) ++ ")"
-    show (EqualsP t1 t2) = (show t1) ++ "=" ++ (show t2)
-    show (CustomP n [])  = n
-    show (CustomP n t)   = n ++ "(" ++ (intercalate "," $ map show t) ++ ")"
-    show (Imply e1 e2) = "(" ++ (show e1) ++ ") -> (" ++ (show e2) ++ ")"
-    show (Disj e)      = "(" ++ (intercalate "|" $ map show e) ++ ")"
-    show (Conj e)      = "(" ++ (intercalate "&" $ map show e) ++ ")"
-    show (Not e)       = "!" ++ (show e)
-    show (Forall v e)  = "@" ++ v ++ "(" ++ (show e) ++ ")"
-    show (Exists v e)  = "?" ++ v ++ "(" ++ (show e) ++ ")"
+--instance Show Expr where
+--    show (Sum t)       = case t of
+--                           (t':[]) -> show t'
+--                           _ -> "(" ++ (intercalate "+" $ map show t) ++ ")"
+--    show (Mult t)      = case t of
+--                           (t':[]) -> show t'
+--                           _ -> "(" ++ (intercalate "*" $ map show t) ++ ")"
+--    show (Var v)       = v
+--    show Zero          = "0"
+--    show (Inc t)       = "(" ++ (show t) ++ ")\'"
+--    show (Func n t)    = n ++ "(" ++ (intercalate "," $ map show t) ++ ")"
+--    show (EqualsP t1 t2) = (show t1) ++ "=" ++ (show t2)
+--    show (CustomP n [])  = n
+--    show (CustomP n t)   = n ++ "(" ++ (intercalate "," $ map show t) ++ ")"
+--    show (Imply e1 e2) = "(" ++ (show e1) ++ ")->(" ++ (show e2) ++ ")"
+--    show (Disj e)      = "(" ++ (intercalate "|" $ map show e) ++ ")"
+--    show (Conj e)      = "(" ++ (intercalate "&" $ map show e) ++ ")"
+--    show (Not e)       = "!" ++ (show e)
+--    show (Forall v e)  = "@" ++ v ++ "(" ++ (show e) ++ ")"
+--    show (Exists v e)  = "?" ++ v ++ "(" ++ (show e) ++ ")"
 
 instance SameOp Expr where
     same (Imply _ _) (Imply _ _)     = True
@@ -75,6 +75,8 @@ getName :: Expr -> String
 getName (CustomP n _) = n
 
 instance Extractable Expr where
+    getArgs (Forall _ e)    = [e]
+    getArgs (Exists _ e)    = [e]
     getArgs (Imply e1 e2)   = [e1, e2]
     getArgs (Disj e)        = e
     getArgs (Conj e)        = e

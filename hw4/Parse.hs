@@ -68,12 +68,14 @@ pPred = try (do name <- pName
 pTerm :: Parsec B.ByteString () Expr
 pTerm = do first <- pSummand
            rest <- many $ char '+' >> pSummand
-           return $ Sum (first:rest)
+           if null rest then return first
+           else return $ Sum (first:rest)
 
 pSummand :: Parsec B.ByteString () Expr
 pSummand = do first <- pInc
               rest <- many $ char '*' >> pInc
-              return $ Mult (first:rest)
+              if null rest then return first
+              else return $ Mult (first:rest)
                            
 pInc :: Parsec B.ByteString () Expr
 pInc = do m <- pMult

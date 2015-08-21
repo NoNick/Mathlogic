@@ -22,6 +22,7 @@ axiomsText = ["A->B->A",
               "a=b->a=c->b=c",
               "a'=b'->a=b",
               "!a'=0",
+              "a+b'=(a+b)'",
               "a+0=a",
               "a*0=0",
               "a*b'=a*b+a"]
@@ -41,20 +42,22 @@ axioms = map unpack $ map (P.parse pExpr "")
 
 matchAxiom :: Expr -> Maybe Int
 matchAxiom e
-    = foldl (\acc (b, n) -> if b then Just n else acc) Nothing (zip res [1..])
+    = foldl (\acc (b, n) -> if b then Just n else acc) Nothing res'
         where res = map ((flip evalState) HM.empty) states
+              res' = zip res [1..]
               states = map ((flip match) e) axioms
               
 -- first args is scheme, second is expression
--- no quantifiers in scheme!
+-- in sceme predicate with empty list of args stands for variable
+--          any variable (term) stands for variable
 match :: Expr -> Expr -> State (HM.Map String Expr) Bool
-match (Forall _ _) _  = return False
-match (Exists _ _) _  = return False
-match (CustomP n p) e = do map <- get
-                           let res = HM.findWithDefault err n map
-                           if res == err then
-                               (do modify (\m -> HM.insert n e m); return True)
-                           else return $ e == res
+match (Var n) e
+    = do map <- get
+         let res = HM.findWithDefault err n map
+         if res == err then
+             (do modify (\m -> HM.insert n e m); return True)
+         else return $ e == res
+match (CustomP n p) e = match (Var n) e
 match s e = if same s e then
                 matchList (getArgs s) (getArgs e)
             else return False
@@ -91,9 +94,9 @@ substL e1 e2 dom
 subst :: Expr -> Expr -> S.Set String -> State (String, Maybe Expr) (Either String Bool)
 subst e1@(Forall x e) e2@(Forall x' e') dom
     = do st <- get
-         let ret = if x /= x' then return $ Right False
-                   else subst e e' dom
-         if x == (fst st) then
+         -- other dom variable with same name means
+         -- everything under quantifier remains unchanged
+         if x == (fst st) then 
              return $ Right (e1 == e2)
          else if x /= x' then return $ Right False
               else subst e e' (S.insert x dom)
@@ -129,3 +132,15 @@ matchExists (Imply e (Exists x e'))
     = fst $ runState (subst e' e S.empty) (x, Nothing)
 matchExists _ = Right False
 
+-- True if expression matches mathematic induction axiom, false otherwise
+-- Returns String err if substition isn't OK
+--matchInd :: Expr -> Either String Bool
+--matchInd (Imply a e3)
+--    = case a of
+--        (Conj l) -> if length l /= 2 then Right False
+--                    else case (last l) of
+--                           (Forall x i) -> case i of
+--                                             (Imply e e2) -> 
+--                           otherwise -> Right False
+--        otherwise -> Right False
+--matchInd _ = Right False
