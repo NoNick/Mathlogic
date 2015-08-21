@@ -49,11 +49,12 @@ deduce h n (x:xs)
          let fAxiom = matchForall x
          let eAxiom = matchExists x
          let premise = elem x $ fst h
+         let induction = matchInd x
          case fAxiom of
            (Right forall) -> case eAxiom of
-                               (Right exists) -> if mp || predRule || axiom || forall || exists || premise then
-                                                     deduce h (succ n) xs
-                                                 else return $ Just $ "Line  " ++ (show n) ++ " isn't an axiom or rule.\n"
+                               (Right exists) -> case induction of
+                                                   (Right ind) -> if mp || predRule || axiom || forall || exists || premise || ind then deduce h (succ n) xs else return $ Just $ "Line  " ++ (show n) ++ " isn't an axiom or rule.\n"
+                                                   (Left l) -> return $ Just l
                                (Left l) -> return $ Just l
            (Left l) -> return $ Just l
 
@@ -63,7 +64,7 @@ ex' = unpack $ P.parse pExpr "" $ B.pack "(@xP(x)->P(x))->(@xP(x)->P(x))->!P(x)-
 main = do file <- B.readFile "input.txt"
           case P.parse pFile "" file of
             (Right (h, p)) -> (do let err = runState (runWriterT $ deduce h 1 p) (HM.empty, S.empty)
-                                  let d = fst err
+                                  let d = fst $ fst err
                                   writeFile "output.txt" $ (show d) ++ "\n")
 --                                  let hText = (intercalate ", " $ map show (fst h)) ++ " |- " ++ show (snd h)
 --                                  let pText = (intercalate "\n" $ map show p)

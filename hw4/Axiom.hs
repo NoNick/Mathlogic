@@ -134,13 +134,25 @@ matchExists _ = Right False
 
 -- True if expression matches mathematic induction axiom, false otherwise
 -- Returns String err if substition isn't OK
---matchInd :: Expr -> Either String Bool
---matchInd (Imply a e3)
---    = case a of
---        (Conj l) -> if length l /= 2 then Right False
---                    else case (last l) of
---                           (Forall x i) -> case i of
---                                             (Imply e e2) -> 
---                           otherwise -> Right False
---        otherwise -> Right False
---matchInd _ = Right False
+matchInd :: Expr -> Either String Bool
+matchInd (Imply a e)
+    = case a of
+        (Conj l) -> if length l /= 2 then Right False
+                    else case (last l) of
+                           (Forall x i) -> case i of
+                                             (Imply e' e2) -> matchInd' x e e' (head l) e2
+                                             otherwise -> Right False
+                           otherwise -> Right False
+        otherwise -> Right False
+matchInd _ = Right False
+
+-- e1&@x(e'->e2)->e
+matchInd' x e e' e1 e2
+    = case s1 of
+        (Right r) -> case s2 of
+                       (Right r') -> Right $ r && r' && (e == e')
+                       l@(Left _) -> l
+        l@(Left _) -> l
+        where s1 = fst $ runState (subst e e1 S.empty) (x, Just $ Zero)
+              s2 = fst $ runState (subst e e2 S.empty) (x, Just $ Inc $ Var x)
+
