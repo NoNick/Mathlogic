@@ -17,7 +17,10 @@ unpackM Nothing  = S.empty
 
 fvAlpha :: Header -> S.Set String
 fvAlpha = fv . last . fst
-                   
+
+leftStr (Left s) = s
+leftStr _ = ""
+          
 reverseRule (Imply e1 e2) vars
     = case e2 of
         (Forall x e) -> if S.member x (fv e1) || S.member x vars then err
@@ -28,6 +31,15 @@ reverseRule (Imply e1 e2) vars
                           otherwise    -> err
 reverseRule _ _ = err
 
+-- if e = e1 -> e2 -> ... -> en
+-- adds in map entries such as map[en] = e1 -> .. -> e(n-1)
+--                                     ............
+--                             map[e2 -> ... -> en] = e1
+slice :: Expr -> HM.Map Expr (S.Set Expr) -> HM.Map Expr (S.Set Expr)
+slice (Imply begin end) map = slice end (HM.insert end set map)
+    where set = S.insert begin $ unpackM $ HM.lookup end map
+slice _ map = map
+                  
 -- dlist of modified proof; hm gives first part by second part of implication
 -- set contains all processed expressions
 -- if proof is correct Nothing is returnted, otherwise error is returned
@@ -35,10 +47,7 @@ deduce :: Header -> Int-> Proof -> WriterT (DL.DList Expr) (State (HM.Map Expr (
 deduce h n [] = return Nothing
 deduce h n (x:xs)
     = do (m, s) <- get
-         let m' = case x of
-                     (Imply e' e) -> let set = S.insert e' $ unpackM $ HM.lookup e m in HM.insert e set m
-                     otherwise   -> m
-         modify (\(m, s) -> (m', S.insert x s))
+         modify (\(m, s) -> (slice x m, S.insert x s))
          let parts = unpackM $ HM.lookup x m
          let mp = or $ S.toList $ S.map ((flip S.member) s) parts
          -- G, a |- b; fv(a) shouldn't be used in predicate rules
@@ -49,14 +58,13 @@ deduce h n (x:xs)
          let fAxiom = matchForall x
          let eAxiom = matchExists x
          let premise = elem x $ fst h
-         let induction = matchInd x
-         case fAxiom of
-           (Right forall) -> case eAxiom of
-                               (Right exists) -> case induction of
-                                                   (Right ind) -> if mp || predRule || axiom || forall || exists || premise || ind then deduce h (succ n) xs else return $ Just $ "Line  " ++ (show n) ++ " isn't an axiom or rule.\n"
-                                                   (Left l) -> return $ Just l
-                               (Left l) -> return $ Just l
-           (Left l) -> return $ Just l
+         let ind = matchInd x
+         case (fAxiom, eAxiom, ind) of
+           (Right forall, Right exists, Right induction)
+               -> if mp || predRule || axiom || forall || exists || premise || induction then
+                      deduce h (succ n) xs
+                  else return $ Just $ "Line  " ++ (show n) ++ " isn't an axiom or rule.\n"
+           (a1, a2, a3) -> return $ Just $ concatMap leftStr [a1, a2, a3]                         
 
 ex  = unpack $ P.parse pExpr "" $ B.pack "@xP(x)->P(x)"
 ex' = unpack $ P.parse pExpr "" $ B.pack "(@xP(x)->P(x))->(@xP(x)->P(x))->!P(x)->@xP(x)->P(x)"

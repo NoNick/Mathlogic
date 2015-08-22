@@ -15,7 +15,7 @@ axiomsText = ["A->B->A",
               "A&B->B",
               "A->A|B",
               "B->A|B",
-              "(A->C)->(B->C)->(A|B->C)",
+              "(A->B)->(C->B)->A|C->B",
               "(A->B)->(A->!B)->!A",
               "!!A->A",
               "a=b->a'=b'",
@@ -137,12 +137,11 @@ matchExists _ = Right False
 matchInd :: Expr -> Either String Bool
 matchInd (Imply a e)
     = case a of
-        (Conj l) -> if length l /= 2 then Right False
-                    else case (last l) of
-                           (Forall x i) -> case i of
-                                             (Imply e' e2) -> matchInd' x e e' (head l) e2
-                                             otherwise -> Right False
-                           otherwise -> Right False
+        (Conj e1 f) -> case f of
+                         (Forall x i) -> case i of
+                                           (Imply e' e2) -> matchInd' x e e' e1 e2
+                                           otherwise -> Right False
+                         otherwise -> Right False
         otherwise -> Right False
 matchInd _ = Right False
 
@@ -156,3 +155,4 @@ matchInd' x e e' e1 e2
         where s1 = fst $ runState (subst e e1 S.empty) (x, Just $ Zero)
               s2 = fst $ runState (subst e e2 S.empty) (x, Just $ Inc $ Var x)
 
+--Disj (Disj (a=2) (a=1)) (a=0)

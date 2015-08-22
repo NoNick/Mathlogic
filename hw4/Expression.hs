@@ -12,7 +12,7 @@ class SameOp a where
 class Extractable a where
     getArgs :: a -> [a]
 
-data Expr = Imply Expr Expr | Disj [Expr] | Conj [Expr] |
+data Expr = Imply Expr Expr | Disj Expr Expr | Conj Expr Expr|
             Not Expr | Forall String Expr | Exists String Expr |
             EqualsP Expr Expr | CustomP String [Expr] |
             Sum [Expr] | Mult [Expr] | Var String | Zero |
@@ -24,10 +24,10 @@ type Proof = [Expr]
 instance Hashable Expr
 
 instance Ord Expr where
-    (<) e1 e2 = (hash e1) < (hash e2)
-    (>=) e1 e2 = (hash e1) >= (hash e2)
-    (>) e1 e2 = (hash e1)  > (hash e2)
-    (<=) e1 e2 = (hash e1) <= (hash e2)
+    (<) e1 e2 = (show e1) < (show e2)
+    (>=) e1 e2 = (show e1) >= (show e2)
+    (>) e1 e2 = (show e1) > (show e2)
+    (<=) e1 e2 = (show e1) <= (show e2)
     max e1 e2 = if e1 > e2 then e1 else e2
     min e1 e2 = if e1 < e2 then e1 else e2
 
@@ -46,16 +46,16 @@ instance Show Expr where
     show (CustomP n [])  = n
     show (CustomP n t)   = n ++ "(" ++ (intercalate "," $ map show t) ++ ")"
     show (Imply e1 e2) = "(" ++ (show e1) ++ ")->(" ++ (show e2) ++ ")"
-    show (Disj e)      = "(" ++ (intercalate "|" $ map show e) ++ ")"
-    show (Conj e)      = "(" ++ (intercalate "&" $ map show e) ++ ")"
+    show (Disj e1 e2)  = "(" ++ (show e1) ++ ")|(" ++ (show e2) ++ ")"
+    show (Conj e1 e2)  = "(" ++ (show e1) ++ ")&(" ++ (show e2) ++ ")"
     show (Not e)       = "!" ++ (show e)
     show (Forall v e)  = "@" ++ v ++ "(" ++ (show e) ++ ")"
     show (Exists v e)  = "?" ++ v ++ "(" ++ (show e) ++ ")"
 
 instance SameOp Expr where
     same (Imply _ _) (Imply _ _)     = True
-    same (Disj e)    (Disj e')       = (length e) == (length e')
-    same (Conj e)    (Conj e')       = (length e) == (length e')
+    same (Disj _ _)    (Disj _ _)    = True
+    same (Conj _ _)    (Conj _ _)    = True
     same (Not _)     (Not _)         = True
     same (Forall _ _) (Forall _ _)   = True
     same (Exists _ _) (Exists _ _)   = True
@@ -78,8 +78,8 @@ instance Extractable Expr where
     getArgs (Forall _ e)    = [e]
     getArgs (Exists _ e)    = [e]
     getArgs (Imply e1 e2)   = [e1, e2]
-    getArgs (Disj e)        = e
-    getArgs (Conj e)        = e
+    getArgs (Disj e1 e2)    = [e1, e2]
+    getArgs (Conj e1 e2)    = [e1, e2]
     getArgs (Not e)         = [e]
     getArgs (Sum t)         = t
     getArgs (Mult t)        = t

@@ -22,17 +22,23 @@ pExpr = do a <- pDisj
                 return a
            return e
 
+disjFromList (x:y:[]) = Disj y x
+disjFromList (x:xs) = Disj (disjFromList xs) x
+
 pDisj :: Parsec B.ByteString () Expr
 pDisj = do x <- pConj
            e <- try (do xs <- many1 (char '|' >> pConj)
-                        return $ Disj (x:xs)) <|>
+                        return $ disjFromList $ reverse (x:xs)) <|>
                 return x
            return e
-        
+
+conjFromList (x:y:[]) = Conj y x
+conjFromList (x:xs) = Conj (disjFromList xs) x
+                  
 pConj :: Parsec B.ByteString () Expr
 pConj = do x <- pUnary
            e <- try (do xs <- many1 (char '&' >> pUnary)
-                        return $ Conj (x:xs)) <|>
+                        return $ conjFromList $ reverse (x:xs)) <|>
                 return x
            return e
 
@@ -119,3 +125,4 @@ pFile = do h <- pHeader
            char '\n'
            p <- pProof
            return (h, p)
+
