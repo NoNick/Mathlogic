@@ -27,6 +27,12 @@ fvAlpha = fv . last . fst
 leftStr (Left s) = s
 leftStr _ = ""
 
+concatE :: [Either String Bool] -> String
+concatE [] = ""
+concatE (x:xs) = case x of
+                   (Left l) -> l
+                   (Right r) -> concatE xs
+
 loadLemma :: String -> IO Proof
 loadLemma path = do file <- B.readFile path
                     let p = P.parse pProof "" file
@@ -81,27 +87,31 @@ deduce h n l (x:xs)
                         HM.insert "B" b $
                         HM.insert "C" x HM.empty
                 tell $ DL.fromList (map (replace m) (l !! 0))
+                deduce h (succ n) l xs                     
 
          else if x == (last $ fst h) then
                   do let m = HM.insert "A" x HM.empty
                      tell $ DL.fromList (map (replace m) (l !! 1))
+                     deduce h (succ n) l xs                   
 
          else if axiom then
                   do let m = HM.insert "B" x $
                              HM.insert "A" (last $ fst h) HM.empty
                      tell $ DL.fromList (map (replace m) (l !! 2))
+                     deduce h (succ n) l xs                    
 
          else if ruleF || ruleE then
-                  case x of
-                    (Imply b d@(Forall x c)) ->
+                  do case x of
+                       (Imply b d@(Forall x c)) ->
                         do let m = HM.fromList [("A", (last $ fst h)), ("B", b), ("C", c), ("D", d)] 
                            tell $ DL.fromList (map (replace m) (l !! 3))
-                    (Imply d@(Exists x b) c) -> 
+                       (Imply d@(Exists x b) c) -> 
                         do let m = HM.fromList [("A", (last $ fst h)), ("B", b), ("C", c), ("D", d)] 
                            tell $ DL.fromList (map (replace m) (l !! 4))
+                     deduce h (succ n) l xs
                                     
-         else tell DL.empty
-         deduce h (succ n) l xs
+         else return $ Just $ "Error in proof at line " ++ (show n) ++ (concatE [ind, axiomF, axiomE])
+
 
 lemmas [] = []
 lemmas (x:xs) = (unpackL $ P.parse pProof "" x):(lemmas xs)
@@ -114,7 +124,10 @@ main = do file <- B.readFile "input.txt"
           er <- B.readFile "lemmas/existsRule"
           case P.parse pFile "" file of
             (Right (h, p)) ->
-                (do let err = runState (runWriterT $ deduce h 1 (lemmas [mp, pr, ax, fr, er]) p) (HM.empty, S.empty)
-                    let d = (intercalate "\n" $ map show $ DL.toList $ snd $ fst err) ++ "\n"
-                    writeFile "output.txt" d)
+                (do let st = runState (runWriterT $ deduce h 1 (lemmas [mp, pr, ax, fr, er]) p) (HM.empty, S.empty)
+                    let header = (intercalate "," $ map show (init $ fst h)) ++ "|-" ++ (show (Imply (last $ fst h) (snd h)))
+                    let txt = (intercalate "\n" $ map show $ DL.toList $ snd $ fst st) ++ "\n"
+                    case fst $ fst st of
+                      Just err -> writeFile "output.txt" (err ++ "\n")
+                      Nothing -> writeFile "output.txt" (header ++ "\n" ++ txt ++ "\n"))
             (Left e)       -> putStrLn $ show e
