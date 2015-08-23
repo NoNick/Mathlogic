@@ -2,6 +2,7 @@
 
 module Expression where
 
+import qualified Data.HashMap as HM
 import GHC.Generics (Generic)
 import Data.Hashable
 import Data.List
@@ -89,6 +90,27 @@ instance Extractable Expr where
     getArgs (Func _ t)      = t
     getArgs (EqualsP t1 t2) = [t1, t2]
     getArgs (CustomP _ t)   = t
+
+replace :: HM.Map String Expr -> Expr -> Expr
+replace m (Forall x e)    = Forall x (replace m e)
+replace m (Exists x e)    = Exists x (replace m e)
+replace m (Imply e1 e2)   = Imply (replace m e1) (replace m e2)
+replace m (Disj e1 e2)    = Disj (replace m e1) (replace m e2)
+replace m (Conj e1 e2)    = Conj (replace m e1) (replace m e2)
+replace m (Not e)         = Not $ replace m e
+replace m (Sum t)         = Sum $ map (replace m) t
+replace m (Mult t)        = Mult $ map (replace m) t
+replace m v@(Var x)        = case HM.lookup x m of
+                              (Just e) -> e
+                              Nothing  -> v
+replace m Zero            = Zero
+replace m (Inc t)         = Inc $ replace m t
+replace m (Func f t)      = Func f $ map (replace m) t
+replace m (EqualsP t1 t2) = EqualsP (replace m t1) (replace m t2)
+replace m c@(CustomP p [])= case HM.lookup p m of
+                              (Just e) -> e
+                              Nothing  -> c
+replace m (CustomP p e)   = CustomP p $ map (replace m) e
 
 -- grammar makes this expression illigal
 err = CustomP "E" []
