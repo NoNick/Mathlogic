@@ -23,7 +23,7 @@ type Header = ([Expr], Expr)
 type Proof = [Expr]
 
 instance Hashable Expr
-
+    
 instance Ord Expr where
     (<) e1 e2 = (show e1) < (show e2)
     (>=) e1 e2 = (show e1) >= (show e2)
@@ -43,13 +43,13 @@ instance Show Expr where
     show Zero          = "0"
     show (Inc t)       = "(" ++ (show t) ++ ")\'"
     show (Func n t)    = n ++ "(" ++ (intercalate "," $ map show t) ++ ")"
-    show (EqualsP t1 t2) = (show t1) ++ "=" ++ (show t2)
+    show (EqualsP t1 t2) = "(" ++ (show t1) ++ "=" ++ (show t2) ++ ")"
     show (CustomP n [])  = n
     show (CustomP n t)   = n ++ "(" ++ (intercalate "," $ map show t) ++ ")"
     show (Imply e1 e2) = "(" ++ (show e1) ++ ")->(" ++ (show e2) ++ ")"
     show (Disj e1 e2)  = "(" ++ (show e1) ++ ")|(" ++ (show e2) ++ ")"
     show (Conj e1 e2)  = "(" ++ (show e1) ++ ")&(" ++ (show e2) ++ ")"
-    show (Not e)       = "!" ++ (show e)
+    show (Not e)       = "!(" ++ (show e) ++ ")"
     show (Forall v e)  = "@" ++ v ++ "(" ++ (show e) ++ ")"
     show (Exists v e)  = "?" ++ v ++ "(" ++ (show e) ++ ")"
 

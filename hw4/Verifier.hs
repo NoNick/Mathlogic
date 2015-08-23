@@ -15,21 +15,18 @@ import Data.List
 unpackM (Just r) = r
 unpackM Nothing  = S.empty
 
-fvAlpha :: Header -> S.Set String
-fvAlpha = fv . last . fst
-
 leftStr (Left s) = s
 leftStr _ = ""
           
-reverseRule (Imply e1 e2) vars
-    = case e2 of
-        (Forall x e) -> if S.member x (fv e1) || S.member x vars then err
-                        else Imply e1 e
-        otherwise    -> case e1 of
-                          (Exists x e) -> if S.member x (fv e2) || S.member x vars then err
-                                          else Imply e e2
-                          otherwise    -> err
-reverseRule _ _ = err
+reverseForall (Imply e1 (Forall x e)) vars
+    = if S.member x (fv e1) then err
+      else Imply e1 e
+reverseForall _ _ = err
+
+reverseExists (Imply (Exists x e) e2) vars
+    = if S.member x (fv e2) then err
+      else Imply e e2
+reverseExists _ _ = err                  
 
 -- if e = e1 -> e2 -> ... -> en
 -- adds in map entries such as map[en] = e1 -> .. -> e(n-1)
@@ -49,9 +46,12 @@ deduce h n (x:xs)
     = do (m, s) <- get
          modify (\(m, s) -> (slice x m, S.insert x s))
          let parts = unpackM $ HM.lookup x m
-         let mp = or $ S.toList $ S.map ((flip S.member) s) parts
+         let mp = not $ S.null $ S.intersection s parts
          -- G, a |- b; fv(a) shouldn't be used in predicate rules
-         let predRule = S.member (reverseRule x (fv $ last $ fst h)) s
+         let fvA = if null $ fst h then S.empty
+                   else fv $ last $ fst h
+         let predRule = (S.member (reverseForall x fvA) s) ||
+                        (S.member (reverseExists x fvA) s)
          let axiom = case matchAxiom x of
                        Just _ -> True
                        otherwise -> False
@@ -64,17 +64,11 @@ deduce h n (x:xs)
                -> if mp || predRule || axiom || forall || exists || premise || induction then
                       deduce h (succ n) xs
                   else return $ Just $ "Line  " ++ (show n) ++ " isn't an axiom or rule.\n"
-           (a1, a2, a3) -> return $ Just $ concatMap leftStr [a1, a2, a3]                         
-
-ex  = unpack $ P.parse pExpr "" $ B.pack "@xP(x)->P(x)"
-ex' = unpack $ P.parse pExpr "" $ B.pack "(@xP(x)->P(x))->(@xP(x)->P(x))->!P(x)->@xP(x)->P(x)"
+           (a1, a2, a3) -> return $ Just $ concatMap leftStr [a1, a2, a3]
 
 main = do file <- B.readFile "input.txt"
           case P.parse pFile "" file of
             (Right (h, p)) -> (do let err = runState (runWriterT $ deduce h 1 p) (HM.empty, S.empty)
                                   let d = fst $ fst err
                                   writeFile "output.txt" $ (show d) ++ "\n")
---                                  let hText = (intercalate ", " $ map show (fst h)) ++ " |- " ++ show (snd h)
---                                  let pText = (intercalate "\n" $ map show p)
---                                  writeFile "output.txt" (hText ++ "\n" ++ pText ++ "\n"))
             (Left e)       -> putStrLn $ show e

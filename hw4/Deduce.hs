@@ -30,7 +30,7 @@ leftStr _ = ""
 concatE :: [Either String Bool] -> String
 concatE [] = ""
 concatE (x:xs) = case x of
-                   (Left l) -> l
+                   (Left l) -> ":\n" ++ l
                    (Right r) -> concatE xs
 
 loadLemma :: String -> IO Proof
@@ -77,10 +77,11 @@ deduce h n l (x:xs)
          let ind = matchInd x
          let axiomF = matchForall x
          let axiomE = matchExists x
+         let premise = elem x (init $ fst h)
          let axiom = case matchAxiom x of
                        Just _ -> True
                        otherwise -> or $ map unpackE [ind, axiomF, axiomE]
-                   
+
          if e_j /= S.empty then
              do let b = head $ S.toList e_j
                 let m = HM.insert "A" (last $ fst h) $
@@ -94,7 +95,7 @@ deduce h n l (x:xs)
                      tell $ DL.fromList (map (replace m) (l !! 1))
                      deduce h (succ n) l xs                   
 
-         else if axiom then
+         else if axiom || premise then
                   do let m = HM.insert "B" x $
                              HM.insert "A" (last $ fst h) HM.empty
                      tell $ DL.fromList (map (replace m) (l !! 2))
@@ -129,5 +130,5 @@ main = do file <- B.readFile "input.txt"
                     let txt = (intercalate "\n" $ map show $ DL.toList $ snd $ fst st) ++ "\n"
                     case fst $ fst st of
                       Just err -> writeFile "output.txt" (err ++ "\n")
-                      Nothing -> writeFile "output.txt" (header ++ "\n" ++ txt ++ "\n"))
+                      Nothing -> writeFile "output.txt" (header ++ "\n" ++ txt))
             (Left e)       -> putStrLn $ show e

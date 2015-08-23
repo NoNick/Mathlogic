@@ -107,17 +107,20 @@ pMult = try (char '0' >> return Zero) <|>
         (pVar >>= return . Var)
 
 pHeader :: Parsec B.ByteString () Header
-pHeader = do p <- many $ try (do e <- pExpr
-                                 char ','
-                                 return e)
-             p' <- pExpr
-             string "|-"
-             e <- pExpr
-             return ((p ++ [p']), e)
+pHeader = try (do string "|-"
+                  e <- pExpr
+                  return ([], e)) <|>
+              (do p <- many $ try (do e <- pExpr
+                                      char ','
+                                      return e)
+                  p' <- pExpr
+                  string "|-"
+                  e <- pExpr
+                  return ((p ++ [p']), e))
 
 pProof :: Parsec B.ByteString () Proof
 pProof = do x <- pExpr
-            xs <- many $ try (char '\n' >> pExpr)
+            xs <- many $ try ((many $ oneOf "\n\t ") >> pExpr)
             return $ x:xs
 
 pFile :: Parsec B.ByteString () (Header, Proof)
