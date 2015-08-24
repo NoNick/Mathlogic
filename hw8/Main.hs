@@ -11,9 +11,3 @@ main = do input <- readFile "input.txt"
                                          else "Different\n"
                       (Left l) -> show l
           writeFile "output.txt" out
-
-unpack (Right r) = r
-p = parse pSum "" "(w+1)^2"
-o = unpack p
-p' = parse pSum "" "w^2+2*w+1"
-o' = unpack p'
