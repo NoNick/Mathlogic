@@ -16,7 +16,7 @@ pSum = do x <- pMult
 
 mulOrd :: [Ordinal] -> Ordinal
 mulOrd (x:y:[]) = Mult y x
-mulOrd (x:xs) = Mult (sumOrd xs) x
+mulOrd (x:xs) = Mult (mulOrd xs) x
           
 pMult :: Parsec String () Ordinal
 pMult = do x <- pPow
@@ -46,6 +46,8 @@ pTerm = (char 'w' >> return Omega) <|>
 
 pEq :: Parsec String () (Ordinal, Ordinal)
 pEq = do o1 <- pSum
+         many $ char ' '
          char '='
+         many $ char ' '              
          o2 <- pSum
          return (o1, o2)
