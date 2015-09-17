@@ -49,24 +49,15 @@ reverseExists (Imply (Exists x e) e2) vars
     = if S.member x (fv e2) || S.member x vars then err
       else Imply e e2
 reverseExists _ _ = err
-
--- if e = e1 -> e2 -> ... -> en
--- adds in map entries such as map[en] = e1 -> .. -> e(n-1)
---                                     ............
---                             map[e2 -> ... -> en] = e1
-slice :: Expr -> HM.Map Expr (S.Set Expr) -> HM.Map Expr (S.Set Expr)
-slice (Imply begin end) map = slice end (HM.insert end set map)
-    where set = S.insert begin $ unpackM $ HM.lookup end map
-slice _ map = map
-
--- dlist of modified proof; hm gives first part by second part of implication
--- set contains all processed expressions; list of proofes is lemmas
--- if proof is correct Nothing is returnted, otherwise error is returned
+                    
 deduce :: Header -> Int -> [Proof] -> Proof -> WriterT (DL.DList Expr) (State (HM.Map Expr (S.Set Expr), S.Set Expr)) (Maybe String)
 deduce h n l [] = return Nothing
 deduce h n l (x:xs)
     = do (m, s) <- get
-         modify (\(m, s) -> (slice x m, S.insert x s))
+         let m' = case x of
+                    (Imply i1 i2) -> HM.insert i2 (S.insert i1 (unpackM $ HM.lookup i2 m)) m
+                    otherwise -> m
+         modify (\(m, s) -> (m', S.insert x s))
          
          -- MP: x == e_i, y == e_j -> e_i
          let parts = unpackM $ HM.lookup x m
@@ -82,7 +73,12 @@ deduce h n l (x:xs)
                        Just _ -> True
                        otherwise -> or $ map unpackE [ind, axiomF, axiomE]
 
-         if e_j /= S.empty then
+         if axiom || premise then
+                  do let m = HM.insert "B" x $
+                             HM.insert "A" (last $ fst h) HM.empty
+                     tell $ DL.fromList (map (replace m) (l !! 2))
+                     deduce h (succ n) l xs                                    
+         else if e_j /= S.empty then
              do let b = head $ S.toList e_j
                 let m = HM.insert "A" (last $ fst h) $
                         HM.insert "B" b $
@@ -94,13 +90,7 @@ deduce h n l (x:xs)
                   do let m = HM.insert "A" x HM.empty
                      tell $ DL.fromList (map (replace m) (l !! 1))
                      deduce h (succ n) l xs                   
-
-         else if axiom || premise then
-                  do let m = HM.insert "B" x $
-                             HM.insert "A" (last $ fst h) HM.empty
-                     tell $ DL.fromList (map (replace m) (l !! 2))
-                     deduce h (succ n) l xs                    
-
+                            
          else if ruleF || ruleE then
                   do case x of
                        (Imply b d@(Forall x c)) ->
@@ -132,3 +122,7 @@ main = do file <- B.readFile "input.txt"
                       Just err -> writeFile "output.txt" (err ++ "\n")
                       Nothing -> writeFile "output.txt" (header ++ "\n" ++ txt))
             (Left e)       -> putStrLn $ show e
+
+unpackR (Right r) = r
+p = P.parse pExpr "" $ B.pack "t=t->t=r->t=t->r=t"
+e = unpackR p
