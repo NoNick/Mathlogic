@@ -120,12 +120,12 @@ pHeader = try (do string "|-"
 
 pProof :: Parsec B.ByteString () Proof
 pProof = do x <- pExpr
-            xs <- many $ try ((many $ oneOf "\n\t ") >> pExpr)
+            xs <- many $ try ((many $ oneOf "\n\r\t ") >> pExpr)
             return $ x:xs
 
 pFile :: Parsec B.ByteString () (Header, Proof)
 pFile = do h <- pHeader
-           char '\n'
+           many $ oneOf "\r\n"
            p <- pProof
            return (h, p)
 
